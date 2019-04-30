@@ -62,17 +62,17 @@ router.post('/forgot_password', async (req, res) => {
     const { email } = req.body;
 
     try {
-        const user = await User.findOne({email});
+        const user = await User.findOne({ email });
 
-        if(!user){
-            res.status(400).send({error : "Usuario não encontrado"});
+        if (!user) {
+            return res.status(400).send({ error: "Usuario não encontrado" });
         }
         const token = crypto.randomBytes(20).toString('hex');
 
         const now = new Date();
-        now.setHours(now.getHours()+1);
+        now.setHours(now.getHours() + 1);
 
-        await User.findByIdAndUpdate(user.id,{
+        await User.findByIdAndUpdate(user.id, {
             '$set': {
                 passwordResetToken: token,
                 passwordResetTokenExpires: now,
@@ -83,16 +83,50 @@ router.post('/forgot_password', async (req, res) => {
             to: email,
             from: "andrezingameplay@gmail.com",
             template: "auth/forgot_password",
-            context : {token},
-        }, (err)=>{
-            if(err){
-                return res.status(400).send({error: "Não consegui mandar email de recuperar senha"})
+            context: { token },
+        }, (err) => {
+            if (err) {
+                return res.status(400).send({ error: "Não consegui mandar email de recuperar senha" })
             }
             return res.send();
         })
 
-    } catch (err) { 
-        res.status(400).send({error: "Erro no Esqueci minha senha"});
+    } catch (err) {
+        res.status(400).send({ error: "Erro no Esqueci minha senha" });
+
+    }
+
+
+})
+
+router.post('/reset_password', async (req, res) => {
+    const { email, token, password } = req.body;
+
+    try {
+        const user = await User.findOne({ email })
+            .select("+passwordResetToken passwordResetExpires");
+
+        if (!user) {
+            return res.status(400).send({ error: "Usuario não encontrado" });
+        }
+
+        if (token !== user.passwordResetToken) {
+            return res.status(400).send({ error: "Token invalido0" });
+        }
+
+        const now = new Date();
+
+        if (now > user.passwordResetTokenExpires) {
+            return res.status(400).send({ error: "Token expirado, gere outro" });
+        }
+
+        user.password = password;
+        await user.save();
+        res.send();
+
+
+    } catch (err) {
+        res.status(400).send({ error: "Erro em resetar a senha" });
 
     }
 
